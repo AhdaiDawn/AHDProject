@@ -1,6 +1,6 @@
 add_subdirectory(catch2)
 add_subdirectory(fmt)
-add_subdirectory(spdlog-1.8.2)
+add_subdirectory(spdlog)
 # add_subdirectory(filament-v1.9.17-windows)
 
 # CMake构建Visual Studio工程时将第三方库放在统一文件夹下
