@@ -11,6 +11,3 @@ int main (void)
 	waitKey(6000);
    return 0;
 }
-//【1】读入一张图片
-//【2】在窗口中显示载入的图片imshow（”【载入的图片】"，img）；
-//【3】等待6000ms后窗口自动关闭waitKey（6000）；
