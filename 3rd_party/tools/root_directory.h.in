@@ -1,0 +1,1 @@
+const char * PROJECT_ROOT_PATH = "${CMAKE_SOURCE_DIR}";

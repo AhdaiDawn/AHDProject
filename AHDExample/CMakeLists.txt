@@ -9,6 +9,9 @@ project(AHDExample)
 add_library(${PROJECT_NAME} src/AHDExample.cpp include/AHDExample/AHDExample.h)
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
+# find
+find_package(spdlog REQUIRED)
+
 target_link_libraries(${PROJECT_NAME} PRIVATE
     fmt::fmt
     spdlog::spdlog
