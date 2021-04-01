@@ -13,7 +13,7 @@ add_subdirectory(3rd_party)
 # my subProject
 add_subdirectory(AHDExample)
 add_subdirectory(AHDOpenCV)
-# add_subdirectory(AHDQtProject)
+add_subdirectory(AHDQtProject)
 # add_subdirectory(FilamentDemo)
 
 # test

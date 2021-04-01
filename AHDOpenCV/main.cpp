@@ -6,7 +6,7 @@ using namespace cv;
 int main (void)
 {
    printf("load opencv...\n");
-	Mat img = imread(FileSystem::getPath("res/1.jpg"));
+	Mat img = imread(FileSystem::getPath("res/textures/1.jpg"));
 	imshow("1.jpg", img);
 	waitKey(6000);
    return 0;
