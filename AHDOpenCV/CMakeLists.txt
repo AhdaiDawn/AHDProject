@@ -9,7 +9,7 @@ project (AHDOpenCV)
 # Add an executable
 add_executable(AHDOpenCV main.cpp)
 
-set (OpenCV_DIR "D:/opencv/build/x64/vc15/lib")
+set (OpenCV_DIR "${3RD_PARTY_PATH}/opencv/build/x64/vc15/lib")
 find_package(OpenCV 4.5.1 REQUIRED)
 
 # find the required packages
