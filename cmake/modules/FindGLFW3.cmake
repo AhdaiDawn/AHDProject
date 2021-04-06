@@ -11,31 +11,17 @@
 # installation.
 #
 # default search dirs
-# 
+#
 # Cmake file from: https://github.com/daw42/glslcookbook
 
 set( _glfw3_HEADER_SEARCH_DIRS
 "/usr/include"
 "/usr/local/include"
-"${CMAKE_SOURCE_DIR}/includes"
-"C:/Program Files (x86)/glfw/include" )
+"${3RD_PARTY_PATH}/glfw/include" )
 set( _glfw3_LIB_SEARCH_DIRS
 "/usr/lib"
 "/usr/local/lib"
-"${CMAKE_SOURCE_DIR}/lib"
-"C:/Program Files (x86)/glfw/lib-msvc110" )
-
-# Check environment for root search directory
-set( _glfw3_ENV_ROOT $ENV{GLFW3_ROOT} )
-if( NOT GLFW3_ROOT AND _glfw3_ENV_ROOT )
-	set(GLFW3_ROOT ${_glfw3_ENV_ROOT} )
-endif()
-
-# Put user specified location at beginning of search
-if( GLFW3_ROOT )
-	list( INSERT _glfw3_HEADER_SEARCH_DIRS 0 "${GLFW3_ROOT}/include" )
-	list( INSERT _glfw3_LIB_SEARCH_DIRS 0 "${GLFW3_ROOT}/lib" )
-endif()
+"${3RD_PARTY_PATH}/glfw/lib" )
 
 # Search for the header
 FIND_PATH(GLFW3_INCLUDE_DIR "GLFW/glfw3.h"
@@ -44,6 +30,15 @@ PATHS ${_glfw3_HEADER_SEARCH_DIRS} )
 # Search for the library
 FIND_LIBRARY(GLFW3_LIBRARY NAMES glfw3 glfw
 PATHS ${_glfw3_LIB_SEARCH_DIRS} )
+# file(GLOB_RECURSE _glfw3_HEADER_SEARCH_FILES "${_glfw3_HEADER_SEARCH_DIRS}/*.h")
+# add_custom_target(glfw SOURCES ${_glfw3_HEADER_SEARCH_FILES}) # 黑魔法,为了ide服务
+
 INCLUDE(FindPackageHandleStandardArgs)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(GLFW3 DEFAULT_MSG
-GLFW3_LIBRARY GLFW3_INCLUDE_DIR)
+GLFW3_INCLUDE_DIR)
+
+add_library(glfw::glfw STATIC IMPORTED)
+set_target_properties(glfw::glfw PROPERTIES
+  IMPORTED_LOCATION ${GLFW3_LIBRARY}
+  INTERFACE_INCLUDE_DIRECTORIES ${GLFW3_INCLUDE_DIR}
+)

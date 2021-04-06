@@ -12,7 +12,11 @@ add_executable(AHDOpenCV main.cpp)
 set (OpenCV_DIR "D:/opencv/build/x64/vc15/lib")
 find_package(OpenCV 4.5.1 REQUIRED)
 
+# find the required packages
+find_package(GLFW3 REQUIRED)
+
 target_link_libraries(${PROJECT_NAME} PRIVATE
     tools::tools
     ${OpenCV_LIBS}
+    glfw::glfw
 )

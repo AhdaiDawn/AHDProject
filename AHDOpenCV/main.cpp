@@ -1,6 +1,7 @@
 #include <opencv2/opencv.hpp>
 #include <cstdio>
 #include "tools/filesystem.h"
+#include "GLFW/glfw3.h"
 using namespace cv;
 
 int main (void)

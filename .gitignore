@@ -1,8 +1,8 @@
 # dir
 /build/
+/vsbuild/
 /.vs/
 /.vscode/
-/filament-v1.9.17-windows/
 # ## Prerequisites
 # *.d
 
