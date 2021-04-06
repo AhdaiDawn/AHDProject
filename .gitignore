@@ -3,6 +3,7 @@
 /vsbuild/
 /.vs/
 /.vscode/
+/bin/
 # ## Prerequisites
 # *.d
 
