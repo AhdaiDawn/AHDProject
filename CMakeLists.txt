@@ -29,6 +29,7 @@ add_subdirectory(AHDExample)
 add_subdirectory(AHDOpenCV)
 add_subdirectory(AHDQtProject)
 add_subdirectory(FilamentDemo)
+add_subdirectory(AHDOpenGL)
 
 # test
 add_subdirectory(tests)

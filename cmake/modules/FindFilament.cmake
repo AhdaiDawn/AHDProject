@@ -3,8 +3,6 @@ set(FILAMENT_LIB ${3RD_PARTY_PATH}/filament/lib)
 set(FILAMENT_INCLUDE ${3RD_PARTY_PATH}/filament/include)
 
 file(GLOB_RECURSE FILAMENT_HEADERS "${FILAMENT_INCLUDE}/*.h")
-add_custom_target(filament SOURCES ${FILAMENT_HEADERS}) # 黑魔法,为了ide服务
-SET_PROPERTY(TARGET filament PROPERTY FOLDER "3rd_party")
 
 # 快速添加子Lib
 function(add_libraries VAR)
@@ -19,7 +17,7 @@ function(add_libraries VAR)
   endforeach()
 
   set(libs ${libs} gdi32.lib user32.lib opengl32.lib) # 添加外部依赖
-  add_library(filament::${VAR} INTERFACE IMPORTED GLOBAL)
+  add_library(filament::${VAR} INTERFACE IMPORTED)
   set_property(TARGET filament::${VAR} PROPERTY
     INTERFACE_LINK_LIBRARIES "${libs}"
     )

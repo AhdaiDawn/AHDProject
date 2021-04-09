@@ -22,6 +22,6 @@ INCLUDE(FindPackageHandleStandardArgs)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(GLM DEFAULT_MSG
 GLM_INCLUDE_DIR)
 
-add_library(glm INTERFACE ${CATCH2_HEADERS})
+add_library(glm INTERFACE IMPORTED)
 add_library(glm::glm ALIAS glm)
 target_include_directories(glm INTERFACE ${GLM_INCLUDE_DIR})

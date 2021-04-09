@@ -1,0 +1,16 @@
+# locate header
+FIND_PATH(GLAD_INCLUDE_DIR "glad/glad.h"
+PATHS "${3RD_PARTY_PATH}/glad/include")
+
+FIND_LIBRARY(glad_LIB_DIR "glad.lib"
+PATHS "${3RD_PARTY_PATH}/glad/lib")
+
+INCLUDE(FindPackageHandleStandardArgs)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(GLAD DEFAULT_MSG
+GLAD_INCLUDE_DIR)
+
+add_library(glad::glad STATIC IMPORTED)
+set_target_properties(glad::glad PROPERTIES
+  IMPORTED_LOCATION ${glad_LIB_DIR}
+  INTERFACE_INCLUDE_DIRECTORIES ${GLAD_INCLUDE_DIR}
+)

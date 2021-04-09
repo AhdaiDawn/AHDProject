@@ -3,6 +3,8 @@
     "cmake.configureOnOpen": true,
     "files.associations": {
         "qcoreapplication": "cpp",
-        "cstdio": "cpp"
+        "cstdio": "cpp",
+        "qtglobal": "cpp",
+        "qdatetime": "cpp"
     }
 }

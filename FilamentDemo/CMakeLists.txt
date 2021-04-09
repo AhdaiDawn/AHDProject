@@ -14,12 +14,10 @@ target_link_options(${PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS")
 
 find_package(Filament REQUIRED)
 find_package(GLM REQUIRED)
-find_package(ASSIMP REQUIRED)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     filament::all
     glm::glm
-    assimp::assimp
 )
 target_include_directories( ${PROJECT_NAME}
     PRIVATE ${PROJECT_SOURCE_DIR}/include
