@@ -16,8 +16,9 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 file(GLOB_RECURSE AHDOPENGl_SOURCES "${PROJECT_SOURCE_DIR}/include/*.h")
+file(GLOB_RECURSE IMGUI_SOURCES "${PROJECT_SOURCE_DIR}/imgui/*.h" "${PROJECT_SOURCE_DIR}/imgui/*.cpp")
 # Add an executable
-add_executable(AHDOpenGL main.cpp stb_image.cpp ${AHDOPENGl_SOURCES})
+add_executable(AHDOpenGL main.cpp stb_image.cpp ${AHDOPENGl_SOURCES} ${IMGUI_SOURCES})
 
 # find the required packages
 find_package(GLFW3 REQUIRED)
@@ -30,6 +31,7 @@ find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Gui Core REQUIRED)
 
 target_include_directories( ${PROJECT_NAME}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
+    PUBILC ${PROJECT_SOURCE_DIR}/imgui
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -37,6 +39,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glfw::glfw
     glad::glad
     glm::glm
+    # imgui::imgui
     assimp::assimp
     opengl32.lib
     Qt${QT_VERSION_MAJOR}::Core

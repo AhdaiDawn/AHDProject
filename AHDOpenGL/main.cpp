@@ -3,6 +3,10 @@
 #include <tools/stb_image.h>
 #include <tools/filesystem.h>
 
+#include <imgui/imgui.h>
+#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_opengl3.h>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -17,6 +21,7 @@
 
 #include <iostream>
 
+static void glfw_error_callback(int error, const char* description);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
@@ -57,9 +62,11 @@ int main()
 {
     // glfw: initialize and configure
     // ------------------------------
+    glfwSetErrorCallback(glfw_error_callback);
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    const char* glsl_version = "#version 330";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
@@ -82,7 +89,7 @@ int main()
     glfwSetScrollCallback(window, scroll_callback);
 
     // tell GLFW to capture our mouse
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -91,6 +98,19 @@ int main()
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
+#if defined(IMGUI_IMPL_OPENGL_LOADER_GLAD)
+    bool err = gladLoadGL() == 0;
+#else
+    bool err = false; // If you use IMGUI_IMPL_OPENGL_LOADER_CUSTOM, your loader is likely to requires some form of initialization.
+#endif
+    if (err)
+    {
+        fprintf(stderr, "Failed to initialize OpenGL loader!\n");
+        return 1;
+    }
+    int nrAttributes;
+    glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &nrAttributes);
+    std::cout << "Maximum nr of vertex attributes supported: " << nrAttributes << std::endl;
 
     // configure global opengl state
     // -----------------------------
@@ -99,7 +119,22 @@ int main()
     glDepthFunc(GL_LEQUAL);
     // enable seamless cubemap sampling for lower mip levels in the pre-filter map.
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-//    glfwSwapInterval(0);
+    glfwSwapInterval(0); // 垂直同步
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsClassic();
+
+    // Setup Platform/Renderer bindings
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init(glsl_version);
 
     // build and compile shaders
     Shader pbrShader(FileSystem::getPath("res/shaders/pbr/pbr.vert").c_str(), FileSystem::getPath("res/shaders/pbr/pbr.frag").c_str());
@@ -109,6 +144,7 @@ int main()
     Shader brdfShader(FileSystem::getPath("res/shaders/pbr/brdf.vert").c_str(), FileSystem::getPath("res/shaders/pbr/brdf.frag").c_str());
     Shader backgroundShader(FileSystem::getPath("res/shaders/pbr/background.vert").c_str(), FileSystem::getPath("res/shaders/pbr/background.frag").c_str());
     Shader depthShader(FileSystem::getPath("res/shaders/pbr/depth.vert").c_str(), FileSystem::getPath("res/shaders/pbr/depth.frag").c_str(),FileSystem::getPath("res/shaders/pbr/depth.geom").c_str());
+    Shader lightShader(FileSystem::getPath("res/shaders/light_cube.vert").c_str(), FileSystem::getPath("res/shaders/light_cube.frag").c_str());
 
     pbrShader.use();
     pbrShader.setInt("irradianceMap", 0);
@@ -119,7 +155,7 @@ int main()
 //    pbrShader.setInt("metallicMap", 5);
 //    pbrShader.setInt("roughnessMap", 6);
 //    pbrShader.setInt("aoMap", 7);
-    pbrShader.setInt("ramMap",5);
+    pbrShader.setInt("ramMap",5); // 合并metallicMap roughnessMap aoMap
     pbrShader.setInt("depthMap", 6);
 
     backgroundShader.use();
@@ -386,6 +422,10 @@ int main()
     glfwGetFramebufferSize(window, &scrWidth, &scrHeight);
     glViewport(0, 0, scrWidth, scrHeight);
 
+    // our state
+    bool show_demo_window = true;
+    bool show_another_window = false;
+    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -522,12 +562,6 @@ int main()
         pbrShader.setMat4("model", model);
         shadowTestModel.Draw(depthShader);
 
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPositions);
-        model = glm::scale(model, glm::vec3(0.2f));
-        pbrShader.setMat4("model", model);
-        renderSphere();
-
         pbrShader.setBool("DisplayBackground", DisplayBackground);
         if (DisplayBackground)
         {
@@ -537,14 +571,67 @@ int main()
             backgroundShader.setMat4("view", view);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
-            //        glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap); // display irradiance map
-            //        glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap); // display prefilter map
+                //    glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap); // display irradiance map
+                //    glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap); // display prefilter map
             renderCube();
         }
 
+        lightShader.use();
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, lightPositions);
+        model = glm::scale(model, glm::vec3(0.2f));
+        lightShader.setMat4("model", model);
+        lightShader.setMat4("view", view);
+        lightShader.setMat4("projection", projection);
+        renderSphere(); // 代表灯的位置
+
         // render BRDF map to screen
-//        brdfShader.use();
-//        renderQuad();
+    //    brdfShader.use();
+    //    renderQuad();
+
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+        if (show_demo_window)
+            ImGui::ShowDemoWindow(&show_demo_window);
+
+        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
+        {
+            static float f = 0.0f;
+            static int counter = 0;
+
+            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+            ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+            ImGui::Checkbox("Another Window", &show_another_window);
+
+            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+            if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+                counter++;
+            ImGui::SameLine();
+            ImGui::Text("counter = %d", counter);
+
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+            ImGui::End();
+        }
+
+        // 3. Show another simple window.
+        if (show_another_window)
+        {
+            ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+            ImGui::Text("Hello from another window!");
+            if (ImGui::Button("Close Me"))
+                show_another_window = false;
+            ImGui::End();
+        }
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -552,10 +639,20 @@ int main()
         glfwPollEvents();
     }
 
+    // Cleanup
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
     // glfw: terminate, clearing all previously allocated GLFW res.
     // ------------------------------------------------------------------
+    glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
+}
+
+static void glfw_error_callback(int error, const char* description)
+{
+    fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
 bool flag_key = false;
@@ -868,6 +965,7 @@ unsigned int loadTexture(char const* path)
     unsigned int textureID;
     glGenTextures(1, &textureID);
 
+    stbi_set_flip_vertically_on_load(true);
     int width, height, nrComponents;
     unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
     if (data)
