@@ -24,6 +24,7 @@
 static void glfw_error_callback(int error, const char* description);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button,int action,int mods);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char* path);
@@ -41,22 +42,25 @@ const unsigned int SCR_HEIGHT = 1000;
 Camera camera(glm::vec3(-0.9f, 3.0f, 4.6f));
 float lastX = 800.0f / 2.0;
 float lastY = 600.0 / 2.0;
-bool firstMouse = true;
+bool firstMouse = false;
+bool MOUSE_BUTTON_LEFT_DOWN = false;
 
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
-float lastDisplayFrame = 0.0f;
 
+// state
 bool DisplayBackground = true;
 bool EnablePBR = true;
-bool EnableRotate = true;
+bool EnableRotate = false;
 bool EnableCloth = true;
+bool EnableOverExposure = false;
+float F0Val = 0.02; //菲涅尔F0
 
 // lights
 // ------
 glm::vec3 lightPositions = glm::vec3(5.0f, 5.0f, 5.0f);
-glm::vec3 lightColors = glm::vec3(200.0f, 200.0f, 200.0f);
+glm::vec3 lightColors = glm::vec3(1.0f, 1.0f, 1.0f);
 
 int main()
 {
@@ -86,6 +90,7 @@ int main()
     }
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetMouseButtonCallback(window,mouse_button_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
     // tell GLFW to capture our mouse
@@ -422,10 +427,6 @@ int main()
     glfwGetFramebufferSize(window, &scrWidth, &scrHeight);
     glViewport(0, 0, scrWidth, scrHeight);
 
-    // our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -435,15 +436,6 @@ int main()
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
-
-        float elapsed = currentFrame - lastDisplayFrame;
-        if (elapsed > 0.5) {
-            lastDisplayFrame = currentFrame;
-            float fps = 1.f / deltaTime;
-            std::stringstream title;
-            title << "OpenGLRenderer    FPS: " << fps << "    ms: " << deltaTime * 1000;
-            glfwSetWindowTitle(window, title.str().c_str());
-        }
 
         // input
         // -----
@@ -500,7 +492,10 @@ int main()
         pbrShader.setMat4("projection", projection);
         pbrShader.setVec3("camPos", camera.Position);
         pbrShader.setBool("EnablePBR", EnablePBR);
+        pbrShader.setBool("EnableOverExposure", EnableOverExposure);
+        pbrShader.setFloat("F0Val", F0Val);
         pbrShader.setFloat("far_plane", far_plane);//
+
 
         // bind pre-computed IBL data
         glActiveTexture(GL_TEXTURE0);
@@ -583,6 +578,7 @@ int main()
         lightShader.setMat4("model", model);
         lightShader.setMat4("view", view);
         lightShader.setMat4("projection", projection);
+        lightShader.setVec3("lightColors", lightColors);
         renderSphere(); // 代表灯的位置
 
         // render BRDF map to screen
@@ -594,42 +590,30 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
-
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
         {
-            static float f = 0.0f;
-            static int counter = 0;
+            ImGui::Begin("Control Panel");                          // Create a window called "Hello, world!" and append into it.
 
-            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+            ImGui::Checkbox("DisplayBackground", &DisplayBackground);
+            ImGui::Checkbox("EnablePBR", &EnablePBR);
+            ImGui::SliderFloat("F0", &F0Val, 0.0f, 1.0f); // Edit 1 float using a slider from 0.0f to 1.0f
+            ImGui::Checkbox("EnableOverExposure", &EnableOverExposure);
+            ImGui::Checkbox("EnableRotate", &EnableRotate);
+            ImGui::Checkbox("EnableLeather", &EnableCloth);
 
-            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-            ImGui::Checkbox("Another Window", &show_another_window);
+            static float f = 5.0f;
+            ImGui::SliderFloat("lightPositions", &f, 1.0f, 10.0f); // Edit 1 float using a slider from 0.0f to 1.0f
+            lightPositions = glm::vec3(f);
+            ImVec4 color = ImVec4(lightColors[0], lightColors[1], lightColors[2], 1.00f);
+            ImGui::ColorEdit3("lightColors", (float*)&color); // Edit 3 floats representing a color
+            lightColors=glm::vec3(color.x,color.y,color.z);
 
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-            if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-                counter++;
-            ImGui::SameLine();
-            ImGui::Text("counter = %d", counter);
+            if (ImGui::Button("grab")) // Buttons return true when clicked (most widgets return true when edited/activated)
+                grab();
 
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
             ImGui::End();
         }
 
-        // 3. Show another simple window.
-        if (show_another_window)
-        {
-            ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me"))
-                show_another_window = false;
-            ImGui::End();
-        }
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -671,52 +655,6 @@ void processInput(GLFWwindow* window)
         camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS)
-        flag_key = true;
-    if ((glfwGetKey(window, GLFW_KEY_G) == GLFW_RELEASE) && flag_key) {
-        grab();
-        std::cout << camera.Position[0] << " " <<camera.Position[1] << " " <<camera.Position[2] << std::endl;
-        flag_key = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS)
-        DisplayBackground = false;
-    if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS)
-        DisplayBackground = true;
-    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
-    {
-        if (lightPositions[0] < 10.0f)
-            lightPositions += 1.0 * deltaTime;
-        else
-            lightPositions = glm::vec3(10.0f);
-    }
-    if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
-    {
-        if (lightPositions[0] > 1.0f)
-            lightPositions -= 1.0 * deltaTime;
-        else
-            lightPositions = glm::vec3(1.0f);
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) {
-        EnablePBR = true;
-    }
-        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
-        EnablePBR = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
-        EnableRotate = true;
-    }
-    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
-        EnableRotate = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
-        EnableCloth = true;
-    }
-    if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) {
-        EnableCloth = false;
-    }
 }
 
 //glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -738,14 +676,25 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
         lastY = ypos;
         firstMouse = false;
     }
+    if(MOUSE_BUTTON_LEFT_DOWN) {
+        float xoffset = xpos - lastX;
+        float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+        lastX = xpos;
+        lastY = ypos;
+        camera.ProcessMouseMovement(xoffset, yoffset);
+    }
+}
 
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
-
-    lastX = xpos;
-    lastY = ypos;
-
-    camera.ProcessMouseMovement(xoffset, yoffset);
+void mouse_button_callback(GLFWwindow* window, int button,int action,int mods)
+{
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if(GLFW_PRESS == action){
+                MOUSE_BUTTON_LEFT_DOWN = true;
+                firstMouse = true;
+            }
+            else if(GLFW_RELEASE == action)
+                MOUSE_BUTTON_LEFT_DOWN = false;
+        }
 }
 
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called

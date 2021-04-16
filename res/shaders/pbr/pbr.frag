@@ -10,9 +10,9 @@ uniform sampler2D normalMap;
 uniform sampler2D ramMap; // roughness ao metallic
 
 // IBL
-uniform samplerCube irradianceMap; // ·øÕÕ¶ÈÌùÍ¼==>¼ä½ÓÂş·´Éä
-uniform samplerCube prefilterMap; // Ô¤ÂË²¨»·¾³ÌùÍ¼==>·´Éä·½³ÌµÄ¾µÃæ²¿·Ö
-uniform sampler2D brdfLUT; //BRDF»ı·ÖÌùÍ¼==>
+uniform samplerCube irradianceMap; //
+uniform samplerCube prefilterMap; //
+uniform sampler2D brdfLUT; //BRDF
 
 //shadow
 uniform float far_plane;
@@ -24,6 +24,8 @@ uniform vec3 lightColors;
 
 uniform bool DisplayBackground;
 uniform bool EnablePBR;
+uniform bool EnableOverExposure;
+uniform float F0Val;
 
 uniform vec3 camPos;
 
@@ -109,7 +111,7 @@ vec3 getNormalFromMap()
     return normalize(TBN * tangentNormal);
 }
 // ----------------------------------------------------------------------------
-float DistributionGGX(vec3 N, vec3 H, float roughness) // ·¨Ïß·Ö²¼º¯Êı
+float DistributionGGX(vec3 N, vec3 H, float roughness) //
 {
     float a = roughness*roughness;
     float a2 = a*a;
@@ -122,7 +124,7 @@ float DistributionGGX(vec3 N, vec3 H, float roughness) // ·¨Ïß·Ö²¼º¯Êı
 
     return nom / denom;
 }
-//Ìì¶ìÈŞ
+//
 float D_Charlie(float roughness, float NoH) {
     // Estevez and Kulla 2017, "Production Friendly Microfacet Sheen BRDF"
     float invAlpha  = 1.0f / roughness;
@@ -142,7 +144,7 @@ float GeometrySchlickGGX(float NdotV, float roughness)
     return nom / denom;
 }
 // ----------------------------------------------------------------------------
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) //¼¸ºÎº¯Êı
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) //
 {
     float NdotV = max(dot(N, V), 0.0f);
     float NdotL = max(dot(N, L), 0.0f);
@@ -152,14 +154,14 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) //¼¸ºÎº¯Êı
     return ggx1 * ggx2;
 }
 // ----------------------------------------------------------------------------
-vec3 fresnelSchlick(float cosTheta, vec3 F0) // ·ÆÄù¶ûÏî
+vec3 fresnelSchlick(float cosTheta, vec3 f0) //
 {
-    return F0 + (1.0f - F0) * pow(1.0f - cosTheta, 5.0f);
+    return f0 + (1.0f - f0) * pow(1.0f - cosTheta, 5.0f);
 }
 // ----------------------------------------------------------------------------
-vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 f0, float roughness)
 {
-    return F0 + (max(vec3(1.0f - roughness), F0) - F0) * pow(1.0f - cosTheta, 5.0f);
+    return f0 + (max(vec3(1.0f - roughness), f0) - f0) * pow(1.0f - cosTheta, 5.0f);
 }
 // ----------------------------------------------------------------------------
 // HDR tonemapping
@@ -182,9 +184,17 @@ vec3 Tonemap_ACES(vec3 x) {
     return (x * (a * x + b)) / (x * (c * x + d) + e);
 }
 
+float getGray(vec3 inColor) {
+    return dot(inColor, vec3(0.299f,0.587f,0.114f));
+}
+
+vec3 getContrast(vec3 inColor,float weight) { // ä¸å¤ªåˆç†
+    return (inColor +vec3((getGray(inColor) - 0.5))*weight);
+}
 // ----------------------------------------------------------------------------
 void main()
 {
+    vec3 out_color = vec3(0.0f);
     if(EnablePBR)
     {
         // material properties
@@ -198,11 +208,11 @@ void main()
         vec3 V = normalize(camPos - WorldPos);
         vec3 R = reflect(-V, N);
 
-        // ¼ÆËã·¨ÏòÈëÉäÊ±µÄ·´ÉäÂÊ; Èç¹ûÎªµç½éÖÊ£¨ËÜÁÏ£©Ê¹ÓÃF0=0.04£»Èç¹ûÊÇ½ğÊô£¬Ê¹ÓÃalbedo×÷ÎªF0£¨½ğÊô¹¤×÷Á÷£©
-        vec3 F0 = vec3(0.04f);
+        //
+        vec3 F0 = vec3(F0Val);
         F0 = mix(F0, albedo, metallic);
 
-        // ·´ÉäÂÊ·½³Ì
+        //
         vec3 Lo = vec3(0.0f);
         {
             // calculate per-light radiance
@@ -247,10 +257,10 @@ void main()
         vec3 kD = 1.0f - kS;
         kD *= 1.0f - metallic;
 
-        vec3 irradiance = texture(irradianceMap, N).rgb; // Ê¹ÓÃ·¨Ïß²ÉÑù
+        vec3 irradiance = texture(irradianceMap, N).rgb; //
         vec3 diffuse      = irradiance * albedo;
 
-        // ¶ÔÔ¤¹ıÂËÆ÷Í¼ºÍBRDF lut½øĞĞ²ÉÑù£¬²¢°´ÕÕSplit-Sum½üËÆ½«ËüÃÇ×éºÏÔÚÒ»Æğ£¬µÃµ½IBL¾µÃæ·´Éä²¿·Ö¡£
+        // BRDF lut
         const float MAX_REFLECTION_LOD = 4.0f;
         vec3 prefilteredColor = textureLod(prefilterMap, R,  roughness * MAX_REFLECTION_LOD).rgb;
         vec2 brdf  = texture(brdfLUT, vec2(max(dot(N, V), 0.0f), roughness)).rg;
@@ -258,58 +268,53 @@ void main()
 
         vec3 ambient;
         if(DisplayBackground)
-            ambient = (kD * diffuse + specular) * ao; //»ùÓÚÍ¼Ïñ
+            ambient = (kD * diffuse + specular) * ao; //
         else
             ambient = vec3(0.5f) * albedo * ao; //
 
         float shadow = ShadowCalculation(WorldPos);
-        vec3 color = ambient + Lo*(1.0f - shadow);
-        // vec3 color = ambient + Lo;
+        out_color = ambient + Lo*(1.0f - shadow);
 
-        // HDR tonemapping
-        // color = color / (color + vec3(1.0));
-        // color = whitePreservingLumaBasedReinhardToneMapping(color);
-        color =  Tonemap_ACES(color);
-        // gamma correct
-        color = pow(color, vec3(1.0f/2.2f));
 
-       FragColor = vec4(color , 1.0f);
-        // if(gl_FragCoord.x < 640)
-        //     FragColor = vec4(color , 1.0);
-        // else
-        //     FragColor = vec4(vec3(color.z),1.0);
     }
-    else
+    else // Phong Lighting Model
     {
-        vec3 color = pow(texture(albedoMap, TexCoords).rgb,vec3(2.2f));
+        vec3 color = pow(texture(albedoMap, TexCoords).rgb,vec3(2.2f)); // gamaçŸ«æ­£
         // ambient
-        vec3 ambient = 0.35f * color;//ÊÖ¶¯µ÷
+        vec3 ambient = 0.35f * color; // ç¯å¢ƒå…‰
         // diffuse
         vec3 lightDir = normalize(lightPositions - WorldPos);
         vec3 normal = getNormalFromMap();
         float diff = max(dot(lightDir, normal), 0.0f);
-        vec3 diffuse = diff * color;
+        vec3 diffuse = diff * lightColors;
         // specular
         vec3 viewDir = normalize(camPos - WorldPos);
-        vec3 reflectDir = reflect(-lightDir, normal);
-        float spec = 0.0f;
-        vec3 halfwayDir = normalize(lightDir + viewDir);
-        spec = pow(max(dot(normal, halfwayDir), 0.0f), 16.0f);
-        vec3 specular = vec3(0.03f) * spec; // assuming bright white light color
+        // vec3 reflectDir = reflect(-lightDir, normal);
+        vec3 halfwayDir = normalize(lightDir + viewDir); // åŠç¨‹å‘é‡
+        float spec = pow(max(dot(normal, halfwayDir), 0.0f), 16.0f);
+        vec3 specular = spec*lightColors;
         float shadow = ShadowCalculation(WorldPos);
-        vec3 out_color = ambient + (1.0f - shadow) * (diffuse + specular);
-        // vec3 out_color = ambient + diffuse + specular;
+        out_color = (ambient + (1.0f - shadow) * (diffuse + specular)) * color;
+    }
+        // åˆ¤æ–­è¿‡æ›
+        if(EnableOverExposure) {
+        if((out_color.x>1.1f)||(out_color.y>1.1f)||(out_color.z>1.1f))
+            out_color = vec3(1.0f,0.0f,0.0f);
+        }
+
         // HDR tonemapping
-        // out_color = out_color / (out_color + vec3(1.0));
-        // out_color = whitePreservingLumaBasedReinhardToneMapping(out_color);
-        out_color = Tonemap_ACES(out_color);
+        // color = color / (color + vec3(1.0));
+        // color = whitePreservingLumaBasedReinhardToneMapping(color);
+        out_color =  Tonemap_ACES(out_color);
         // gamma correct
         out_color = pow(out_color, vec3(1.0f/2.2f));
 
+        // if(gl_FragCoord.x < 640) // ä¸€åŠé»‘ç™½ ä¸€åŠå½©è‰²
+        //     FragColor = vec4(out_color , 1.0);
+        // else {
+        //     out_color = vec3(getGray(out_color));
+        //     // out_color = getContrast(out_color,1.0f);
+        //     // FragColor = vec4(out_color , 1.0f);
+        // }
        FragColor = vec4(out_color , 1.0f);
-    //     if(gl_FragCoord.x < 640)
-    //         FragColor = vec4(out_color , 1.0);
-    //     else
-    //         FragColor = vec4(vec3(out_color.z),1.0);
-    }
 }
